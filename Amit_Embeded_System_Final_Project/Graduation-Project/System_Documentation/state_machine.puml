@@ -1,0 +1,92 @@
+@startuml
+skinparam stateBackgroundColor LightCyan
+skinparam stateBorderColor DarkSlateGray
+
+title Smart Home -- Keypad Interface State Machine\n(Owner: Application/AppManager/AppManager_program.c)
+
+note as N1
+  All state transitions are handled by
+  isolated private handler functions:
+  App_HandleWaitID / App_HandleWaitPass
+  App_HandleMainMenu / App_HandleStatus
+  App_HandleOptions / App_HandleDimmerCtrl
+  dispatched by App_DispatchKeypad()
+end note
+
+[*] --> APP_STATE_IDLE : System Boot
+
+state APP_STATE_IDLE {
+  APP_STATE_IDLE : App_voidInit() runs
+  APP_STATE_IDLE : Init: LCD, KPD, Login, Device, Temp, Comm, Alarm
+  APP_STATE_IDLE : Display "Smart Home System" (500ms)
+}
+
+APP_STATE_IDLE --> APP_STATE_WAIT_ID : Init complete
+
+state APP_STATE_WAIT_ID {
+  APP_STATE_WAIT_ID : Render "ID: " on LCD
+  APP_STATE_WAIT_ID : Await single keypad press
+  APP_STATE_WAIT_ID : Store pressed key as User ID
+}
+
+APP_STATE_WAIT_ID --> APP_STATE_WAIT_PASS : App_HandleWaitID(key)
+
+state APP_STATE_WAIT_PASS {
+  APP_STATE_WAIT_PASS : Display "Pass: " on LCD line 2
+  APP_STATE_WAIT_PASS : Collect 4 digits, echo star
+}
+
+APP_STATE_WAIT_PASS --> Authenticate : 4th digit entered
+APP_STATE_WAIT_PASS --> APP_STATE_WAIT_ID : Login Failed
+
+state Authenticate <<choice>>
+Authenticate --> APP_STATE_MAIN_MENU : Login OK\n"Login Success!" flash
+Authenticate --> AlarmTriggered      : 3 consecutive failures
+
+state APP_STATE_MAIN_MENU {
+  APP_STATE_MAIN_MENU : UI_voidDisplayMainMenu()
+  APP_STATE_MAIN_MENU : Line1: 1-Status
+  APP_STATE_MAIN_MENU : Line2: 2-Opt   3-Logout
+}
+
+APP_STATE_MAIN_MENU --> APP_STATE_STATUS   : Key 1
+APP_STATE_MAIN_MENU --> APP_STATE_OPTIONS  : Key 2
+APP_STATE_MAIN_MENU --> APP_STATE_WAIT_ID  : Key 3 Logout
+
+state APP_STATE_STATUS {
+  APP_STATE_STATUS : UI_voidDisplayStatus() on entry
+  APP_STATE_STATUS : UI_voidRefreshStatus() in App_voidRun() loop
+}
+
+APP_STATE_STATUS --> APP_STATE_MAIN_MENU : Key 3 Back
+APP_STATE_STATUS --> APP_STATE_STATUS    : Key 1 Manual refresh
+
+state APP_STATE_OPTIONS {
+  APP_STATE_OPTIONS : UI_voidDisplayOptions(optIdx)
+  APP_STATE_OPTIONS : 4=prev  6=next  1=back
+  APP_STATE_OPTIONS : 2=On    3=Off
+  APP_STATE_OPTIONS : Checks Comm_u8IsKpdUserPermitted()
+}
+
+APP_STATE_OPTIONS --> APP_STATE_MAIN_MENU   : Key 1 Back
+APP_STATE_OPTIONS --> APP_STATE_OPTIONS     : Keys 4 or 6 navigate
+APP_STATE_OPTIONS --> APP_STATE_DIMMER_CTRL : Key 2 on Dim item
+
+state APP_STATE_DIMMER_CTRL {
+  APP_STATE_DIMMER_CTRL : UI_voidDisplayDimmerCtrl()
+  APP_STATE_DIMMER_CTRL : 2=0%  3=25%  4=50%
+  APP_STATE_DIMMER_CTRL : 5=75% 6=100% 1=back
+  APP_STATE_DIMMER_CTRL : Checks Comm_u8IsKpdUserPermitted()
+}
+
+APP_STATE_DIMMER_CTRL --> APP_STATE_OPTIONS : Key 1 Back
+
+state AlarmTriggered {
+  AlarmTriggered : Alarm_voidTrigger()
+  AlarmTriggered : LCD "ALARM SYSTEM TRIGGERED"
+  AlarmTriggered : WDT enabled with 2s timeout
+  AlarmTriggered : infinite loop -> MCU reset
+}
+AlarmTriggered --> [*] : MCU Reset after 2 s
+
+@enduml

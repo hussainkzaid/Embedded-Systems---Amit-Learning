@@ -1,0 +1,53 @@
+@startuml
+skinparam maxMessageSize 150
+skinparam ParticipantPadding 20
+
+title Authentication & Device Control Sequence
+
+actor Terminal_Admin
+actor Keypad_User
+participant "Comm_Handler" as Comm
+participant "Main_App" as Main
+participant "Login_Manager" as Login
+participant "EEPROM_MCAL" as EEPROM
+participant "Device_Control" as Devices
+participant "WDT_MCAL" as WDT
+
+== Terminal Admin Login ==
+Terminal_Admin -> Comm: Input ID
+Terminal_Admin -> Comm: Input Password (4 digits)
+Comm -> Login: Login_u8Authenticate(TERMINAL, ID, Pass)
+Login -> EEPROM: Read Admin Address (0x00)
+EEPROM --> Login: Admin stored ID & Pass
+Login -> Login: Compare hashes/credentials
+Login --> Comm: LOGIN_ADMIN_ROLE (Success)
+
+== Terminal Admin Configures Keypad ==
+Terminal_Admin -> Comm: "permit user"
+Comm -> Comm: g_u8KpdUserPermitted = 1
+
+== Keypad User Login ==
+Keypad_User -> Main: Enter ID & Pass (LCD/KPD loop)
+Main -> Login: Login_u8Authenticate(KPD, ID, Pass)
+Login -> EEPROM: Read User Slots Address (0x10...)
+EEPROM --> Login: User stored ID & Pass
+Login --> Main: LOGIN_USER_ROLE (Success)
+Main -> Comm: Comm_voidSetKpdStatus(1)
+
+== Keypad Device Interaction ==
+Keypad_User -> Main: Enable L1 (Key '2' pressed on L1 option)
+Main -> Comm: Comm_u8IsKpdUserPermitted()
+Comm --> Main: Return 1 (Permitted)
+Main -> Devices: Device_voidSetLamp(LAMP1, LAMP_ON)
+
+== Alarm Trigger on Failed Logins ==
+Keypad_User -> Main: Invalid ID/Pass
+Main -> Login: Login_u8Authenticate(KPD, ID, Pass)
+Login --> Main: LOGIN_NO_ROLE
+Main -> Login: Increment fail attempts
+Main -> Login: GetFailedAttempts() == 3 
+Login -> WDT: WDT_voidEnable(WDT_TIMEOUT_2S)
+Main -> Keypad_User: LCD "ALARM TRIGGERED!"
+WDT -> Main: RESET MCU
+
+@enduml

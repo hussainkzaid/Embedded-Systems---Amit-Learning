@@ -1,0 +1,101 @@
+@startuml
+skinparam componentStyle uml2
+skinparam backgroundColor white
+skinparam padding 2
+
+title Smart Home System Architecture (Modular — Layered)
+
+package "Entry Point" {
+  [main.c] <<26 lines>>
+}
+
+package "Application Layer" {
+  [AppManager] <<State Machine>>
+  [UIManager] <<LCD Rendering>>
+  [Login Manager]
+  [Device Control]
+  [Temperature Manager]
+  [Communication Handler]
+  [Alarm Manager]
+}
+
+package "Hardware Abstraction Layer (HAL)" {
+  [LCD Driver]
+  [KPD Driver]
+  [LED Driver]
+  [Servo Driver]
+  [DC Motor Driver]
+  [Switch Driver]
+}
+
+package "Microcontroller Abstraction Layer (MCAL)" {
+  [DIO]
+  [UART]
+  [TWI\n(I2C)]
+  [EEPROM]
+  [ADC]
+  [PWM]
+  [WDT]
+}
+
+database External_EEPROM
+node Sensors_Actuators {
+   [Keypad Matrix]
+   [16x2 HD44780]
+   [LM35 Temp Sensor]
+   [LEDs (L1-L5)]
+   [Dimmer Bulb]
+   [Door Servo]
+   [AC Fan (DCM)]
+   [UART Terminal]
+}
+
+' Entry point wires only AppManager
+[main.c] --> [AppManager] : App_voidInit()\nApp_voidRun()
+
+' AppManager orchestrates all domains
+[AppManager] --> [UIManager]       : screen rendering
+[AppManager] --> [Login Manager]   : auth
+[AppManager] --> [Device Control]  : lamps/door/AC
+[AppManager] --> [Temperature Manager] : background
+[AppManager] --> [Communication Handler] : background
+[AppManager] --> [Alarm Manager]   : alarm check
+
+' UIManager is only LCD renderer in Application layer
+[UIManager] --> [LCD Driver]
+[UIManager] --> [Temperature Manager] : read temp
+[UIManager] --> [Device Control]      : read AC state
+
+' AppManager polls keypad directly (HAL)
+[AppManager] --> [KPD Driver]
+
+' Domain modules -> HAL/MCAL
+[Login Manager]   --> [EEPROM]
+[Device Control]  --> [LED Driver]
+[Device Control]  --> [Servo Driver]
+[Device Control]  --> [DC Motor Driver]
+[Device Control]  --> [PWM]
+[Temperature Manager] --> [ADC]
+[Communication Handler] --> [UART]
+[Alarm Manager]   --> [WDT]
+[Alarm Manager]   --> [LCD Driver] : alarm message
+
+' HAL -> MCAL
+[LCD Driver]      --> [DIO]
+[KPD Driver]      --> [DIO]
+[LED Driver]      --> [DIO]
+[DC Motor Driver] --> [DIO]
+[Servo Driver]    --> [PWM]
+
+' MCAL -> Hardware
+[EEPROM] <--> External_EEPROM      : TWI Bus
+[ADC]    <-- [LM35 Temp Sensor]    : Analog
+[PWM]    --> [Dimmer Bulb]         : OC0
+[PWM]    --> [Door Servo]          : OC1A
+[UART]  <--> [UART Terminal]       : RX/TX
+[DIO]    --> [16x2 HD44780]
+[DIO]   <-- [Keypad Matrix]
+[DIO]    --> [LEDs (L1-L5)]
+[DIO]    --> [AC Fan (DCM)]
+
+@enduml

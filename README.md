@@ -18,7 +18,7 @@ The **capstone project** of the diploma: a fully layered AVR embedded system wit
 - 5 lamps + 1 dimmer (PWM), servo-controlled door, DC motor–driven AC
 - 3 failed login attempts trigger an alarm and a watchdog-timer MCU reset
 
-📄 See the [full project documentation](./Graduation_Project/README.md) for the complete architecture, module APIs, pin mapping, and UART command reference.
+📄 See the [full project documentation](./Amit_Embeded_System_Final_Project/README.md) for the complete architecture, module APIs, pin mapping, and UART command reference.
 
 ---
 
@@ -41,7 +41,7 @@ A Student Database Management System implemented in C using **singly linked list
 - Display all student IDs and check for duplicates
 - Capacity-limited database with modular `.c`/`.h` design
 
-📄 See the [project README](./Student_Database_Management_System/README.md) for full details.
+📄 See the [project README](./amit-c-programming-project/README.md) for full details.
 
 ---
 
